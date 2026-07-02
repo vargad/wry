@@ -99,7 +99,15 @@ fn handle_request(
   let webview_id = env.get_string(&webview_id)?;
   let webview_id = webview_id.to_str().ok().unwrap_or_default();
 
-  if let Some(handler) = REQUEST_HANDLER.lock().unwrap().get(webview_id) {
+  let Some(handler) = REQUEST_HANDLER
+    .lock()
+    .unwrap()
+    .get(webview_id)
+    .map(|handler| handler.handler.clone())
+  else {
+    return Ok(*JObject::null());
+  };
+
     #[cfg(feature = "tracing")]
     let span =
       tracing::info_span!(parent: None, "wry::custom_protocol::handle", uri = tracing::field::Empty).entered();
@@ -162,7 +170,7 @@ fn handle_request(
     let response = {
       #[cfg(feature = "tracing")]
       let _span = tracing::info_span!("wry::custom_protocol::call_handler").entered();
-      (handler.handler)(
+      handler(
         webview_id,
         final_request,
         is_document_start_script_enabled != 0,
@@ -245,8 +253,6 @@ fn handle_request(
 
       return Ok(*web_resource_response);
     }
-  }
-
   Ok(*JObject::null())
 }
 
